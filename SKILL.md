@@ -262,6 +262,8 @@ asyncio.run(cross_server_chain())
 
 ### Pattern: Batch Operations with Error Handling
 
+**Important**: MCP tool errors are returned in `result.isError` and `result.content`, NOT raised as Python exceptions. Always check `result.isError` after each call.
+
 ```python
 import asyncio
 from mcp import ClientSession, StdioServerParameters
@@ -279,12 +281,13 @@ async def batch_operations(items: list[dict]):
 
             results = []
             for item in items:
-                try:
-                    result = await session.call_tool(item["tool"], item["args"])
+                result = await session.call_tool(item["tool"], item["args"])
+                if result.isError:
+                    error_text = result.content[0].text if result.content else "Unknown error"
+                    results.append({"status": "error", "error": error_text})
+                    print(f"Failed {item['tool']}: {error_text}")
+                else:
                     results.append({"status": "ok", "result": result.content})
-                except Exception as e:
-                    results.append({"status": "error", "error": str(e)})
-                    print(f"Failed {item['tool']}: {e}")
 
             return results
 
@@ -343,6 +346,15 @@ npx -y @modelcontextprotocol/server-filesystem /tmp
 
 ### "Tool not found"
 Run the discovery script first to see exact tool names. Names are case-sensitive.
+
+### Errors don't raise exceptions
+MCP tool errors are returned in the result object, not raised as Python exceptions. Always check `result.isError`:
+```python
+result = await session.call_tool("my_tool", {"arg": "value"})
+if result.isError:
+    error_msg = result.content[0].text if result.content else "Unknown error"
+    print(f"Tool failed: {error_msg}")
+```
 
 ### Environment variables missing
 Pass env vars through the StdioServerParameters:

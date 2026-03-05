@@ -25,6 +25,14 @@ async def call_tool(tool_name: str, arguments: dict, command: str, args: list[st
             await session.initialize()
 
             result = await session.call_tool(tool_name, arguments=arguments)
+
+            if result.isError:
+                print(f"ERROR: Tool call failed", file=sys.stderr)
+                for content in result.content:
+                    text = content.text if hasattr(content, "text") else str(content)
+                    print(text, file=sys.stderr)
+                sys.exit(1)
+
             for content in result.content:
                 if hasattr(content, "text"):
                     print(content.text)
